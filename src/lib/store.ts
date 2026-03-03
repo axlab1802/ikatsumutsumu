@@ -3,6 +3,7 @@ export type GameSettings = {
     bgmMp3DataUrl: string | null;
     highScore: number;
     soundEnabled: boolean;
+    playerName: string | null;
 };
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -10,6 +11,7 @@ const DEFAULT_SETTINGS: GameSettings = {
     bgmMp3DataUrl: null,
     highScore: 0,
     soundEnabled: true,
+    playerName: null,
 };
 
 export const getGameSettings = (): GameSettings => {

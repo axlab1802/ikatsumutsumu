@@ -23,12 +23,16 @@ export default function GameCanvas() {
     const [highScore, setHighScore] = useState(0);
     const [canShake, setCanShake] = useState(true);
     const [soundEnabled, setSoundEnabled] = useState(true);
+    const [playerName, setPlayerName] = useState<string | null>(null);
+    const [showNamePrompt, setShowNamePrompt] = useState(false);
+    const [inputName, setInputName] = useState("");
 
     const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
     const dragAudioRef = useRef<HTMLAudioElement | null>(null);
     const stompAudioRef = useRef<HTMLAudioElement | null>(null);
     const fourHitAudioRef = useRef<HTMLAudioElement | null>(null);
     const hurryUpAudioRef = useRef<HTMLAudioElement | null>(null);
+    const gameOverAudioRef = useRef<HTMLAudioElement | null>(null);
 
     const isPointerDownRef = useRef(false);
     const selectedPathRef = useRef<Matter.Body[]>([]);
@@ -41,6 +45,7 @@ export default function GameCanvas() {
         const settings = getGameSettings();
         setHighScore(settings.highScore);
         setSoundEnabled(settings.soundEnabled);
+        setPlayerName(settings.playerName);
 
         // Preload sounds
         bgmAudioRef.current = new Audio("/assets/bgm.mp3");
@@ -49,6 +54,7 @@ export default function GameCanvas() {
         stompAudioRef.current = new Audio("/assets/stomp.wav");
         fourHitAudioRef.current = new Audio("/assets/4hit.mp3");
         hurryUpAudioRef.current = new Audio("/assets/hurry_up.wav");
+        gameOverAudioRef.current = new Audio("/assets/gameover.mp3");
 
         // Allow settings override for BGM
         if (settings.bgmMp3DataUrl) {
@@ -73,6 +79,7 @@ export default function GameCanvas() {
             prewarm(stompAudioRef.current);
             prewarm(fourHitAudioRef.current);
             prewarm(hurryUpAudioRef.current);
+            prewarm(gameOverAudioRef.current);
         }
 
         setScore(0);
@@ -271,6 +278,10 @@ export default function GameCanvas() {
                 setGameOver(true);
                 setIsPlaying(false);
                 if (bgmAudioRef.current) bgmAudioRef.current.pause();
+                if (soundEnabled && gameOverAudioRef.current) {
+                    gameOverAudioRef.current.currentTime = 0;
+                    gameOverAudioRef.current.play().catch(e => console.error(e));
+                }
                 Matter.Engine.clear(engine);
                 if (renderRef.current) cancelAnimationFrame(renderRef.current);
             }
@@ -387,9 +398,21 @@ export default function GameCanvas() {
             if (score > highScore) {
                 setHighScore(score);
                 saveGameSettings({ highScore: score });
+                if (score >= 10000 && !playerName) {
+                    setShowNamePrompt(true);
+                }
             }
         }
-    }, [gameOver, score, highScore]);
+    }, [gameOver, score, highScore, playerName]);
+
+    const handleSaveName = () => {
+        const finalName = inputName.trim().substring(0, 5);
+        if (finalName.length > 0) {
+            setPlayerName(finalName);
+            saveGameSettings({ playerName: finalName });
+            setShowNamePrompt(false);
+        }
+    };
 
     // Clean layout for Game
     return (
@@ -420,11 +443,13 @@ export default function GameCanvas() {
                         >
                             START
                         </button>
-                        <div className="text-xl font-black shadow-black mt-4 px-4 bg-white/50 rounded-full border-2 border-black border-dashed" style={{ color: "var(--riso-black)" }}>HIGH SCORE: {highScore}</div>
+                        <div className="text-xl font-black shadow-black mt-4 px-4 bg-white/50 rounded-full border-2 border-black border-dashed" style={{ color: "var(--riso-black)" }}>
+                            HIGH SCORE: {highScore} {playerName ? `(${playerName})` : ""}
+                        </div>
                     </div>
                 )}
 
-                {gameOver && (
+                {gameOver && !showNamePrompt && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 backdrop-blur-md bg-white/50 z-10">
                         <h2 className="text-5xl tracking-tighter riso-text">TIME UP!</h2>
                         <div className="text-4xl font-black mix-blend-multiply" style={{ color: "var(--riso-blue)" }}>SCORE: {score}</div>
@@ -436,6 +461,31 @@ export default function GameCanvas() {
                             className="mt-6 riso-btn-alt text-2xl font-black py-4 px-8"
                         >
                             PLAY AGAIN
+                        </button>
+                    </div>
+                )}
+
+                {showNamePrompt && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 backdrop-blur-md bg-white/80 z-20 px-6">
+                        <h2 className="text-3xl font-black riso-text text-center">🏆 AMAZING! 🏆</h2>
+                        <p className="text-lg font-bold text-center" style={{ color: "var(--riso-black)" }}>
+                            Over 10,000 pts! Enter your name to save the record:
+                        </p>
+                        <input
+                            type="text"
+                            maxLength={5}
+                            value={inputName}
+                            onChange={(e) => setInputName(e.target.value)}
+                            placeholder="NAME (5 chars)"
+                            className="w-full text-center text-3xl font-black p-4 border-4 border-black"
+                            style={{ backgroundColor: "var(--riso-paper)", color: "var(--riso-blue)" }}
+                        />
+                        <button
+                            onClick={handleSaveName}
+                            disabled={inputName.trim().length === 0}
+                            className={`riso-btn w-full text-2xl font-black py-4 mt-2 ${inputName.trim().length === 0 ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+                        >
+                            SAVE NAME
                         </button>
                     </div>
                 )}
