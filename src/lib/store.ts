@@ -2,12 +2,14 @@ export type GameSettings = {
     seWavDataUrl: string | null;
     bgmMp3DataUrl: string | null;
     highScore: number;
+    soundEnabled: boolean;
 };
 
 const DEFAULT_SETTINGS: GameSettings = {
     seWavDataUrl: null,
     bgmMp3DataUrl: null,
     highScore: 0,
+    soundEnabled: true,
 };
 
 export const getGameSettings = (): GameSettings => {

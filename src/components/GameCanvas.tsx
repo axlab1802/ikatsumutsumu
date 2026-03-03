@@ -9,7 +9,7 @@ import { Home } from "lucide-react";
 const ITEMS = ["🦑", "🐙", "🌵", "🦀", "🥤", "🐟", "🥃"];
 const BALL_RADIUS = 28;
 const ITEM_LIMIT = 50;
-const GAME_TIME = 60; // seconds
+const GAME_TIME = 30; // seconds
 
 export default function GameCanvas() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,69 +21,69 @@ export default function GameCanvas() {
     const [isPlaying, setIsPlaying] = useState(false);
     const [gameOver, setGameOver] = useState(false);
     const [highScore, setHighScore] = useState(0);
+    const [canShake, setCanShake] = useState(true);
+    const [soundEnabled, setSoundEnabled] = useState(true);
 
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const seBufferRef = useRef<AudioBuffer | null>(null);
     const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
+    const dragAudioRef = useRef<HTMLAudioElement | null>(null);
+    const stompAudioRef = useRef<HTMLAudioElement | null>(null);
+    const fourHitAudioRef = useRef<HTMLAudioElement | null>(null);
+    const hurryUpAudioRef = useRef<HTMLAudioElement | null>(null);
 
     const isPointerDownRef = useRef(false);
     const selectedPathRef = useRef<Matter.Body[]>([]);
+    const lastClearTimeRef = useRef(0);
+    const hintPathRef = useRef<Matter.Body[]>([]);
+    const isHurryUpPlayedRef = useRef(false);
 
     // Load Audio & Settings
     useEffect(() => {
         const settings = getGameSettings();
         setHighScore(settings.highScore);
+        setSoundEnabled(settings.soundEnabled);
 
-        audioContextRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        // Preload sounds
+        bgmAudioRef.current = new Audio("/assets/bgm.mp3");
+        bgmAudioRef.current.loop = true;
+        dragAudioRef.current = new Audio("/assets/drag.mp3");
+        stompAudioRef.current = new Audio("/assets/stomp.wav");
+        fourHitAudioRef.current = new Audio("/assets/4hit.mp3");
+        hurryUpAudioRef.current = new Audio("/assets/hurry_up.wav");
 
-        if (settings.seWavDataUrl) {
-            fetch(settings.seWavDataUrl)
-                .then(res => res.arrayBuffer())
-                .then(buffer => audioContextRef.current?.decodeAudioData(buffer))
-                .then(decoded => {
-                    seBufferRef.current = decoded || null;
-                }).catch(e => console.error(e));
-        }
-
+        // Allow settings override for BGM
         if (settings.bgmMp3DataUrl) {
             bgmAudioRef.current = new Audio(settings.bgmMp3DataUrl);
             bgmAudioRef.current.loop = true;
         }
     }, []);
 
-    const playSE = useCallback(() => {
-        if (!audioContextRef.current) return;
-        if (audioContextRef.current.state === "suspended") {
-            audioContextRef.current.resume();
-        }
-
-        if (seBufferRef.current) {
-            const source = audioContextRef.current.createBufferSource();
-            source.buffer = seBufferRef.current;
-            source.connect(audioContextRef.current.destination);
-            source.start();
-        } else {
-            // Fallback simple beep for placeholder EXHILARATING sound
-            const osc = audioContextRef.current.createOscillator();
-            osc.type = "sine";
-            osc.frequency.setValueAtTime(500, audioContextRef.current.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(1200, audioContextRef.current.currentTime + 0.1);
-            const gain = audioContextRef.current.createGain();
-            gain.gain.setValueAtTime(0.5, audioContextRef.current.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioContextRef.current.currentTime + 0.3);
-            osc.connect(gain);
-            gain.connect(audioContextRef.current.destination);
-            osc.start();
-            osc.stop(audioContextRef.current.currentTime + 0.3);
-        }
-    }, []);
-
     const startGame = useCallback(() => {
+        const prewarm = (audio: HTMLAudioElement | null) => {
+            if (!audio) return;
+            audio.muted = true;
+            audio.play().then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.muted = false;
+            }).catch(() => { });
+        };
+
+        if (soundEnabled) {
+            prewarm(dragAudioRef.current);
+            prewarm(stompAudioRef.current);
+            prewarm(fourHitAudioRef.current);
+            prewarm(hurryUpAudioRef.current);
+        }
+
         setScore(0);
         setTimeLeft(GAME_TIME);
         setGameOver(false);
         setIsPlaying(true);
-        if (bgmAudioRef.current) {
+        setCanShake(true);
+        lastClearTimeRef.current = Date.now();
+        hintPathRef.current = [];
+        isHurryUpPlayedRef.current = false;
+        if (soundEnabled && bgmAudioRef.current) {
             bgmAudioRef.current.currentTime = 0;
             bgmAudioRef.current.play().catch(e => console.error(e));
         }
@@ -141,6 +141,33 @@ export default function GameCanvas() {
             }
         }, 150);
 
+        const findHint = () => {
+            const bodies = Matter.Composite.allBodies(engine.world).filter(b => b.label && ITEMS.includes(b.label));
+
+            for (const startBody of bodies) {
+                const stack: Matter.Body[][] = [[startBody]];
+                const seen = new Set([startBody.id]);
+
+                while (stack.length > 0) {
+                    const path = stack.pop()!;
+                    if (path.length >= 3) return path;
+                    const current = path[path.length - 1];
+
+                    for (const neighbor of bodies) {
+                        if (neighbor.label === current.label && !seen.has(neighbor.id)) {
+                            const dx = neighbor.position.x - current.position.x;
+                            const dy = neighbor.position.y - current.position.y;
+                            if (Math.sqrt(dx * dx + dy * dy) < BALL_RADIUS * 3.5) {
+                                seen.add(neighbor.id);
+                                stack.push([...path, neighbor]);
+                            }
+                        }
+                    }
+                }
+            }
+            return [];
+        };
+
         const checkCollision = (pointerXY: { x: number, y: number }) => {
             const bodies = engine.world.bodies.filter(b => b.label && ITEMS.includes(b.label));
 
@@ -160,13 +187,9 @@ export default function GameCanvas() {
                             const bdy = b.position.y - lastSelected.position.y;
                             if (Math.sqrt(bdx * bdx + bdy * bdy) < BALL_RADIUS * 3.5) {
                                 selectedPathRef.current.push(b);
-                                // mini pop sound
-                                const osc = audioContextRef.current?.createOscillator();
-                                if (osc && audioContextRef.current) {
-                                    osc.frequency.value = 800 + selectedPathRef.current.length * 100;
-                                    osc.connect(audioContextRef.current.destination);
-                                    osc.start();
-                                    osc.stop(audioContextRef.current.currentTime + 0.05);
+                                if (soundEnabled && dragAudioRef.current) {
+                                    dragAudioRef.current.currentTime = 0;
+                                    dragAudioRef.current.play().catch(e => console.error(e));
                                 }
                                 break;
                             }
@@ -178,6 +201,8 @@ export default function GameCanvas() {
 
         const handlePointerDown = (e: React.PointerEvent) => {
             isPointerDownRef.current = true;
+            hintPathRef.current = [];
+            lastClearTimeRef.current = Date.now();
             selectedPathRef.current = [];
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
@@ -199,7 +224,18 @@ export default function GameCanvas() {
             if (connected.length >= 3) {
                 Matter.World.remove(engine.world, connected);
                 setScore(s => s + connected.length * connected.length * 100);
-                playSE();
+                if (soundEnabled) {
+                    if (connected.length >= 4 && fourHitAudioRef.current) {
+                        fourHitAudioRef.current.currentTime = 0;
+                        fourHitAudioRef.current.play().catch(e => console.error(e));
+                    } else if (connected.length === 3 && stompAudioRef.current) {
+                        stompAudioRef.current.currentTime = 0;
+                        stompAudioRef.current.play().catch(e => console.error(e));
+                    }
+                }
+                lastClearTimeRef.current = Date.now();
+            } else {
+                lastClearTimeRef.current = Date.now();
             }
             selectedPathRef.current = [];
         };
@@ -216,6 +252,19 @@ export default function GameCanvas() {
         const gameTimer = setInterval(() => {
             timer--;
             setTimeLeft(timer);
+
+            if (timer === 10 && !isHurryUpPlayedRef.current) {
+                isHurryUpPlayedRef.current = true;
+                if (soundEnabled && hurryUpAudioRef.current) {
+                    hurryUpAudioRef.current.currentTime = 0;
+                    hurryUpAudioRef.current.play().catch(e => console.error(e));
+                }
+            }
+
+            if (Date.now() - lastClearTimeRef.current > 5000 && hintPathRef.current.length === 0 && !isPointerDownRef.current && timer > 0) {
+                hintPathRef.current = findHint();
+            }
+
             if (timer <= 0) {
                 clearInterval(gameTimer);
                 clearInterval(spawnTimer);
@@ -228,11 +277,11 @@ export default function GameCanvas() {
         }, 1000);
 
         const customRender = () => {
-            // Background gradient
-            ctx.fillStyle = "#1e3a8a";
+            // Background is Riso Paper (f4f0e6)
+            ctx.fillStyle = "#f4f0e6";
             ctx.fillRect(0, 0, width, height);
 
-            // Emojis mapping
+            // Set up Emojis rendering
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
 
@@ -246,25 +295,41 @@ export default function GameCanvas() {
                 ctx.rotate(b.angle);
 
                 const isSelected = selectedPathRef.current.includes(b);
-                const scale = isSelected ? 1.2 : 1;
+                const isHint = hintPathRef.current.includes(b);
+                const hintScale = isHint ? 1.1 + Math.sin(Date.now() / 150) * 0.1 : 1;
+                const scale = isSelected ? 1.2 : hintScale;
 
-                if (isSelected) {
-                    ctx.shadowColor = "rgba(100, 255, 150, 0.9)";
-                    ctx.shadowBlur = 25;
+                // Riso Multiply Effect
+                ctx.globalCompositeOperation = "multiply";
+                ctx.font = `${BALL_RADIUS * 1.5 * scale}px Arial`;
+
+                if (isSelected || isHint) {
+                    // Bright Riso glow for selection
+                    ctx.shadowColor = isSelected ? "#ff48b0" : "#0078bf"; // Pink for selection, Blue for hint
+                    ctx.shadowBlur = 0;
+                    ctx.shadowOffsetX = 4;
+                    ctx.shadowOffsetY = 4;
                     ctx.beginPath();
                     ctx.arc(0, 0, BALL_RADIUS * scale, 0, 2 * Math.PI);
-                    ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+                    ctx.fillStyle = isSelected ? "#ffe800" : "#f4f0e6"; // Yellow for selection, Paper color for hint pulse
                     ctx.fill();
-                } else {
-                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = "transparent";
                 }
 
-                ctx.font = `${BALL_RADIUS * 1.5 * scale}px Arial`;
+                // Offset text for riso printing effect
+                ctx.globalAlpha = 0.8;
+                ctx.fillText(b.label, -2, -2); // Cyan/base offset impression
+
+                ctx.globalAlpha = 1.0;
+                ctx.fillText(b.label, 2, 2); // Pink/Magenta offset
+
+                ctx.globalCompositeOperation = "source-over"; // Reset for actual emoji
                 ctx.fillText(b.label, 0, 0);
+
                 ctx.restore();
             }
 
-            // Draw connecting lines
+            // Draw connecting lines with Riso styling
             if (selectedPathRef.current.length > 0) {
                 ctx.beginPath();
                 for (let i = 0; i < selectedPathRef.current.length; i++) {
@@ -272,9 +337,19 @@ export default function GameCanvas() {
                     if (i === 0) ctx.moveTo(body.position.x, body.position.y);
                     else ctx.lineTo(body.position.x, body.position.y);
                 }
-                ctx.lineWidth = 10;
-                ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.lineWidth = 14;
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+                ctx.globalCompositeOperation = "multiply";
+                ctx.strokeStyle = "#0078bf"; // Riso Blue
                 ctx.stroke();
+
+                // Offset stroke
+                ctx.translate(4, 4);
+                ctx.strokeStyle = "#ff48b0"; // Riso Pink
+                ctx.stroke();
+                ctx.translate(-4, -4);
+                ctx.globalCompositeOperation = "source-over";
             }
 
             Matter.Engine.update(engine, 1000 / 60);
@@ -289,7 +364,23 @@ export default function GameCanvas() {
             Matter.Engine.clear(engine);
             if (renderRef.current) cancelAnimationFrame(renderRef.current);
         };
-    }, [playSE]);
+    }, [soundEnabled]);
+
+    const handleShake = useCallback(() => {
+        if (!canShake || !engineRef.current || !isPlaying || gameOver) return;
+        setCanShake(false);
+
+        // Apply random explosive upward force to all items
+        const bodies = Matter.Composite.allBodies(engineRef.current.world).filter(b => b.label && ITEMS.includes(b.label));
+
+        for (const b of bodies) {
+            const forceMagnitude = 0.05 + Math.random() * 0.05;
+            Matter.Body.applyForce(b, b.position, {
+                x: (Math.random() - 0.5) * 0.05,
+                y: -forceMagnitude
+            });
+        }
+    }, [canShake, isPlaying, gameOver]);
 
     useEffect(() => {
         if (gameOver) {
@@ -302,13 +393,13 @@ export default function GameCanvas() {
 
     // Clean layout for Game
     return (
-        <div className="flex flex-col items-center min-h-screen bg-gray-900 overflow-hidden select-none">
-            <div className="w-full max-w-[360px] flex items-center justify-between p-4 text-white font-bold">
-                <div className="text-xl">Time: <span className="text-red-400">{timeLeft}</span>s</div>
-                <div className="text-xl">Score: <span className="text-green-400">{score}</span></div>
+        <div className="flex flex-col items-center min-h-screen overflow-hidden select-none p-4" style={{ backgroundColor: "var(--riso-paper)" }}>
+            <div className="w-full max-w-[360px] flex items-center justify-between p-4 font-black text-2xl" style={{ color: "var(--riso-black)" }}>
+                <div>TIME: <span style={{ color: "var(--riso-pink)" }}>{timeLeft}</span>s</div>
+                <div>SCORE: <span style={{ color: "var(--riso-blue)" }}>{score}</span></div>
             </div>
 
-            <div className="relative shadow-2xl rounded-2xl overflow-hidden bg-black touch-none">
+            <div className="relative riso-card overflow-hidden touch-none mt-2 rounded-xl">
                 <canvas
                     ref={canvasRef}
                     width={360}
@@ -318,30 +409,31 @@ export default function GameCanvas() {
                 />
 
                 {!isPlaying && !gameOver && (
-                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-6 backdrop-blur-sm">
-                        <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 drop-shadow">
-                            SEAFOOD POP
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 backdrop-blur-sm bg-white/30 z-10">
+                        <h2 className="text-5xl tracking-tighter riso-text text-center">
+                            SEAFOOD POP!<br />
+                            <span className="text-xl tracking-normal text-black" style={{ textShadow: "none" }}>Tap to play</span>
                         </h2>
                         <button
                             onClick={startGame}
-                            className="bg-green-500 hover:bg-green-600 text-white text-2xl font-bold py-4 px-10 rounded-full shadow-lg transform active:scale-95 transition"
+                            className="riso-btn text-2xl font-black py-4 px-10"
                         >
                             START
                         </button>
-                        <div className="text-yellow-400 font-bold mt-4 shadow-black">High Score: {highScore}</div>
+                        <div className="text-xl font-black shadow-black mt-4 px-4 bg-white/50 rounded-full border-2 border-black border-dashed" style={{ color: "var(--riso-black)" }}>HIGH SCORE: {highScore}</div>
                     </div>
                 )}
 
                 {gameOver && (
-                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-6 backdrop-blur-md">
-                        <h2 className="text-4xl font-extrabold text-red-500 animate-pulse">TIME UP!</h2>
-                        <div className="text-3xl text-white font-bold">Score: {score}</div>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 backdrop-blur-md bg-white/50 z-10">
+                        <h2 className="text-5xl tracking-tighter riso-text">TIME UP!</h2>
+                        <div className="text-4xl font-black mix-blend-multiply" style={{ color: "var(--riso-blue)" }}>SCORE: {score}</div>
                         {score >= highScore && score > 0 && (
-                            <div className="text-xl text-yellow-500 font-bold">NEW HIGH SCORE!</div>
+                            <div className="text-2xl font-black animate-pulse" style={{ color: "var(--riso-pink)" }}>NEW HIGH SCORE!</div>
                         )}
                         <button
                             onClick={startGame}
-                            className="mt-6 bg-blue-500 hover:bg-blue-600 text-white text-xl font-bold py-3 px-8 rounded-full shadow-lg transform active:scale-95 transition"
+                            className="mt-6 riso-btn-alt text-2xl font-black py-4 px-8"
                         >
                             PLAY AGAIN
                         </button>
@@ -349,9 +441,16 @@ export default function GameCanvas() {
                 )}
             </div>
 
-            <div className="mt-6 flex justify-center w-full max-w-[360px]">
-                <Link href="/" className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white py-2 px-6 rounded-lg transition border border-gray-600">
-                    <Home size={20} /> Quit to Menu
+            <div className="mt-6 flex justify-between w-full max-w-[360px] gap-4">
+                <button
+                    onClick={handleShake}
+                    disabled={!canShake || !isPlaying || gameOver}
+                    className={`riso-btn-alt flex-1 flex items-center justify-center gap-2 font-bold py-3 px-2 ${!canShake || !isPlaying || gameOver ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+                >
+                    SHAKE(1)
+                </button>
+                <Link href="/" className="riso-card flex-1 flex items-center justify-center gap-2 font-bold py-3 px-2 hover:bg-yellow-200">
+                    <Home size={20} /> QUIT
                 </Link>
             </div>
         </div>

@@ -44,61 +44,61 @@ export default function AdminPage() {
     if (!settings) return null;
 
     return (
-        <main className="min-h-screen bg-gray-900 text-white p-6">
+        <main className="min-h-screen p-6 font-bold" style={{ backgroundColor: "var(--riso-paper)", color: "var(--riso-black)" }}>
             <div className="max-w-2xl mx-auto space-y-8">
                 <div className="flex items-center gap-4">
-                    <Link href="/" className="hover:bg-gray-800 p-2 rounded-full transition">
+                    <Link href="/" className="hover:bg-yellow-200 p-2 rounded-full transition riso-card hover:translate-y-1">
                         <ArrowLeft />
                     </Link>
-                    <h1 className="text-3xl font-bold">Game Settings (JSON Storage)</h1>
+                    <h1 className="text-4xl tracking-tighter mix-blend-multiply" style={{ color: "var(--riso-blue)" }}>GAME SETTINGS</h1>
                 </div>
 
-                <div className="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700">
-                    <h2 className="text-xl font-bold flex items-center gap-2 mb-4 text-blue-400">
+                <div className="riso-card p-6 rounded-none p-8 leading-relaxed">
+                    <h2 className="text-2xl flex items-center gap-2 mb-4 mix-blend-multiply" style={{ color: "var(--riso-pink)" }}>
                         <Volume2 /> Sound Effects (WAV)
                     </h2>
-                    <p className="text-sm text-gray-400 mb-4">Upload an exhilarating sound effect used when destroying items.</p>
+                    <p className="text-sm mb-4 font-bold opacity-80">Upload an exhilarating sound effect used when destroying items.</p>
                     <input
                         type="file"
                         accept="audio/wav"
-                        className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                        className="block w-full text-sm font-bold file:mr-4 file:py-2 file:px-4 file:border-2 file:border-black file:text-sm file:font-black file:bg-[var(--riso-yellow)] file:text-[var(--riso-black)] hover:file:bg-yellow-400 file:cursor-pointer p-2 border-2 border-dashed border-black mb-4"
                         onChange={(e) => handleFileUpload(e, "seWavDataUrl")}
                     />
                     {settings.seWavDataUrl && (
                         <div className="mt-4">
-                            <audio controls src={settings.seWavDataUrl} className="h-10 w-full" />
+                            <audio controls src={settings.seWavDataUrl} className="h-10 w-full rounded-none" />
                         </div>
                     )}
                 </div>
 
-                <div className="bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-700">
-                    <h2 className="text-xl font-bold flex items-center gap-2 mb-4 text-green-400">
+                <div className="riso-card p-6 rounded-none p-8 leading-relaxed">
+                    <h2 className="text-2xl flex items-center gap-2 mb-4 mix-blend-multiply" style={{ color: "var(--riso-blue)" }}>
                         <Music /> Background Music (MP3)
                     </h2>
-                    <p className="text-sm text-gray-400 mb-4">Upload background music for the game.</p>
+                    <p className="text-sm mb-4 font-bold opacity-80">Upload background music for the game.</p>
                     <input
                         type="file"
                         accept="audio/mpeg"
-                        className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700"
+                        className="block w-full text-sm font-bold file:mr-4 file:py-2 file:px-4 file:border-2 file:border-black file:text-sm file:font-black file:bg-[var(--riso-pink)] file:text-[var(--riso-paper)] hover:file:opacity-80 file:cursor-pointer p-2 border-2 border-dashed border-black mb-4"
                         onChange={(e) => handleFileUpload(e, "bgmMp3DataUrl")}
                     />
                     {settings.bgmMp3DataUrl && (
                         <div className="mt-4">
-                            <audio controls src={settings.bgmMp3DataUrl} className="h-10 w-full" />
+                            <audio controls src={settings.bgmMp3DataUrl} className="h-10 w-full rounded-none" />
                         </div>
                     )}
                 </div>
 
-                <div className="bg-gray-800 p-6 rounded-2xl shadow-lg border border-red-900/40">
-                    <h2 className="text-xl font-bold flex items-center gap-2 mb-4 text-red-500">
+                <div className="riso-card p-6 rounded-none p-8 leading-relaxed" style={{ backgroundColor: "#ffebf5" }}>
+                    <h2 className="text-2xl flex items-center gap-2 mb-4 mix-blend-multiply" style={{ color: "var(--riso-pink)" }}>
                         High Score Storage
                     </h2>
-                    <p className="text-sm text-gray-300 mb-4">Current High Score: <span className="font-mono text-2xl text-yellow-400">{settings.highScore}</span> points</p>
+                    <p className="text-sm font-bold mb-4">Current High Score: <span className="text-3xl mix-blend-multiply" style={{ color: "var(--riso-blue)" }}>{settings.highScore}</span> points</p>
                     <button
                         onClick={clearScores}
-                        className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-bold transition"
+                        className="riso-btn-alt flex items-center gap-2 py-3 px-6 font-black"
                     >
-                        <Trash2 size={20} /> Reset Scores
+                        <Trash2 size={24} /> RESET SCORES
                     </button>
                 </div>
             </div>

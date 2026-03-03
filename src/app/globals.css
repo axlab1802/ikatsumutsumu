@@ -3,26 +3,75 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+  --riso-paper: #f4f0e6;
+  --riso-pink: #ff48b0;
+  --riso-blue: #0078bf;
+  --riso-yellow: #ffe800;
+  --riso-black: #2b2b2b;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-  touch-action: none; /* Prevent scrolling while playing */
+  background-color: var(--riso-paper);
+  color: var(--riso-black);
+  touch-action: none;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Authentic Risograph noise overlay */
+body::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.15;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* Riso Utility Classes */
+.riso-text {
+  font-weight: 900;
+  color: var(--riso-pink);
+  text-shadow: 4px 4px 0px var(--riso-blue);
+  mix-blend-mode: multiply;
+}
+
+.riso-text-inverse {
+  font-weight: 900;
+  color: var(--riso-paper);
+  text-shadow: 3px 3px 0px var(--riso-pink), -3px -3px 0px var(--riso-blue);
+}
+
+.riso-btn {
+  background-color: var(--riso-yellow);
+  color: var(--riso-black);
+  border: 4px solid var(--riso-black);
+  box-shadow: 8px 8px 0px var(--riso-pink);
+  transition: all 0.15s ease-in-out;
+  text-transform: uppercase;
+}
+
+.riso-btn-alt {
+  background-color: var(--riso-blue);
+  color: var(--riso-paper);
+  border: 4px solid var(--riso-black);
+  box-shadow: 8px 8px 0px var(--riso-black);
+  transition: all 0.15s ease-in-out;
+  text-transform: uppercase;
+}
+
+.riso-btn:active,
+.riso-btn-alt:active {
+  box-shadow: 2px 2px 0px var(--riso-black);
+  transform: translate(6px, 6px);
+}
+
+.riso-card {
+  background-color: var(--riso-paper);
+  border: 4px solid var(--riso-black);
+  box-shadow: 8px 8px 0px var(--riso-blue);
 }
