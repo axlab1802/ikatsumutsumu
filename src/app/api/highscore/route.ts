@@ -13,7 +13,7 @@ export async function GET() {
             score: scoreStr ? parseInt(scoreStr, 10) : 0,
             name: nameStr || null
         });
-    } catch (err) {
+    } catch {
         return NextResponse.json({ score: 0, name: null }, { status: 500 });
     }
 }
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
         }
 
         return NextResponse.json({ success: true, updated: false });
-    } catch (err) {
+    } catch {
         return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
     }
 }
