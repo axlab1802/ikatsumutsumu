@@ -26,6 +26,8 @@ export default function GameCanvas() {
     const [playerName, setPlayerName] = useState<string | null>(null);
     const [showNamePrompt, setShowNamePrompt] = useState(false);
     const [inputName, setInputName] = useState("");
+    const [globalHighScore, setGlobalHighScore] = useState(0);
+    const [globalPlayerName, setGlobalPlayerName] = useState<string | null>(null);
 
     const bgmAudioRef = useRef<HTMLAudioElement | null>(null);
     const dragAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -44,6 +46,17 @@ export default function GameCanvas() {
 
     // Global cleanup on unmount
     useEffect(() => {
+        // Fetch global high score on load
+        fetch("/api/highscore")
+            .then(res => res.json())
+            .then(data => {
+                if (data && typeof data.score === "number") {
+                    setGlobalHighScore(data.score);
+                    setGlobalPlayerName(data.name);
+                }
+            })
+            .catch(err => console.error("Error fetching global highscore:", err));
+
         return () => {
             if (bgmAudioRef.current) {
                 bgmAudioRef.current.pause();
@@ -423,6 +436,23 @@ export default function GameCanvas() {
             setPlayerName(finalName);
             saveGameSettings({ playerName: finalName });
             setShowNamePrompt(false);
+
+            // Post to global leaderboard
+            const savedScore = Math.max(score, highScore);
+            fetch("/api/highscore", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ score: savedScore, name: finalName })
+            })
+                .then(() => fetch("/api/highscore"))
+                .then(res => res.json())
+                .then(data => {
+                    if (data && typeof data.score === "number") {
+                        setGlobalHighScore(data.score);
+                        setGlobalPlayerName(data.name);
+                    }
+                })
+                .catch(e => console.error(e));
         }
     };
 
@@ -455,8 +485,8 @@ export default function GameCanvas() {
                         >
                             START
                         </button>
-                        <div className="text-xl font-black shadow-black mt-4 px-4 bg-white/50 rounded-full border-2 border-black border-dashed" style={{ color: "var(--riso-black)" }}>
-                            HIGH SCORE: {highScore} {playerName ? `(${playerName})` : ""}
+                        <div className="text-xl font-black shadow-black mt-4 px-4 bg-white/50 rounded-full border-2 border-black border-dashed flex flex-col items-center" style={{ color: "var(--riso-black)" }}>
+                            <span>GLOBAL HIGH SCORE: {Math.max(highScore, globalHighScore)} {globalHighScore >= highScore ? (globalPlayerName ? `(${globalPlayerName})` : "") : (playerName ? `(${playerName})` : "")}</span>
                         </div>
                     </div>
                 )}
