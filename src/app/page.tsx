@@ -25,8 +25,8 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
-      <h1 className="text-6xl text-center leading-tight mb-8 riso-text mix-blend-multiply tracking-tighter">
-        SEAFOOD POP! <br /> <span className="text-3xl text-black" style={{ textShadow: "2px 2px 0px #ffe800", mixBlendMode: "normal" }}>~ Ikatsumutsumu ~</span>
+      <h1 className="text-6xl text-center leading-tight mb-8 riso-text mix-blend-multiply tracking-tighter font-black">
+        イカツムツム <br /> <span className="text-3xl text-black" style={{ textShadow: "2px 2px 0px #ffe800", mixBlendMode: "normal" }}>~ SEAFOOD POP ~</span>
       </h1>
 
       <div className="flex flex-col gap-6 w-full max-w-sm mt-8">

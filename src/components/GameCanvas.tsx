@@ -39,6 +39,22 @@ export default function GameCanvas() {
     const lastClearTimeRef = useRef(0);
     const hintPathRef = useRef<Matter.Body[]>([]);
     const isHurryUpPlayedRef = useRef(false);
+    const spawnTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const gameTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Global cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (bgmAudioRef.current) {
+                bgmAudioRef.current.pause();
+                bgmAudioRef.current.currentTime = 0;
+            }
+            if (spawnTimerRef.current) clearInterval(spawnTimerRef.current);
+            if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+            if (engineRef.current) Matter.Engine.clear(engineRef.current);
+            if (renderRef.current) cancelAnimationFrame(renderRef.current);
+        };
+    }, []);
 
     // Load Audio & Settings
     useEffect(() => {
@@ -130,7 +146,8 @@ export default function GameCanvas() {
         }
         Matter.World.add(engine.world, initialBodies);
 
-        const spawnTimer = setInterval(() => {
+        if (spawnTimerRef.current) clearInterval(spawnTimerRef.current);
+        spawnTimerRef.current = setInterval(() => {
             if (engine.world.bodies.length < ITEM_LIMIT + 3) {
                 const typeInfo = ITEMS[Math.floor(Math.random() * ITEMS.length)];
                 const body = Matter.Bodies.circle(
@@ -255,8 +272,9 @@ export default function GameCanvas() {
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
+        if (gameTimerRef.current) clearInterval(gameTimerRef.current);
         let timer = GAME_TIME;
-        const gameTimer = setInterval(() => {
+        gameTimerRef.current = setInterval(() => {
             timer--;
             setTimeLeft(timer);
 
@@ -273,8 +291,8 @@ export default function GameCanvas() {
             }
 
             if (timer <= 0) {
-                clearInterval(gameTimer);
-                clearInterval(spawnTimer);
+                if (gameTimerRef.current) clearInterval(gameTimerRef.current);
+                if (spawnTimerRef.current) clearInterval(spawnTimerRef.current);
                 setGameOver(true);
                 setIsPlaying(false);
                 if (bgmAudioRef.current) bgmAudioRef.current.pause();
@@ -368,13 +386,6 @@ export default function GameCanvas() {
         };
 
         renderRef.current = requestAnimationFrame(customRender);
-
-        return () => {
-            clearInterval(spawnTimer);
-            clearInterval(gameTimer);
-            Matter.Engine.clear(engine);
-            if (renderRef.current) cancelAnimationFrame(renderRef.current);
-        };
     }, [soundEnabled]);
 
     const handleShake = useCallback(() => {
@@ -385,9 +396,10 @@ export default function GameCanvas() {
         const bodies = Matter.Composite.allBodies(engineRef.current.world).filter(b => b.label && ITEMS.includes(b.label));
 
         for (const b of bodies) {
-            const forceMagnitude = 0.05 + Math.random() * 0.05;
+            // Increase force magnitude significantly to make items fly up
+            const forceMagnitude = 0.3 + Math.random() * 0.3;
             Matter.Body.applyForce(b, b.position, {
-                x: (Math.random() - 0.5) * 0.05,
+                x: (Math.random() - 0.5) * 0.2, // increased horizontal scatter
                 y: -forceMagnitude
             });
         }
@@ -433,8 +445,8 @@ export default function GameCanvas() {
 
                 {!isPlaying && !gameOver && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 backdrop-blur-sm bg-white/30 z-10">
-                        <h2 className="text-5xl tracking-tighter riso-text text-center">
-                            SEAFOOD POP!<br />
+                        <h2 className="text-5xl tracking-tighter riso-text text-center font-black">
+                            イカツムツム<br />
                             <span className="text-xl tracking-normal text-black" style={{ textShadow: "none" }}>Tap to play</span>
                         </h2>
                         <button
@@ -467,16 +479,16 @@ export default function GameCanvas() {
 
                 {showNamePrompt && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 backdrop-blur-md bg-white/80 z-20 px-6">
-                        <h2 className="text-3xl font-black riso-text text-center">🏆 AMAZING! 🏆</h2>
+                        <h2 className="text-3xl font-black riso-text text-center">🏆 すんばらしぃー！ 🏆</h2>
                         <p className="text-lg font-bold text-center" style={{ color: "var(--riso-black)" }}>
-                            Over 10,000 pts! Enter your name to save the record:
+                            1万点超えだっちゃ！<br />ハイスコアのなめぇ(名前)ば入れでけさい：
                         </p>
                         <input
                             type="text"
                             maxLength={5}
                             value={inputName}
                             onChange={(e) => setInputName(e.target.value)}
-                            placeholder="NAME (5 chars)"
+                            placeholder="名前(5文字まで)"
                             className="w-full text-center text-3xl font-black p-4 border-4 border-black"
                             style={{ backgroundColor: "var(--riso-paper)", color: "var(--riso-blue)" }}
                         />
@@ -485,7 +497,7 @@ export default function GameCanvas() {
                             disabled={inputName.trim().length === 0}
                             className={`riso-btn w-full text-2xl font-black py-4 mt-2 ${inputName.trim().length === 0 ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
                         >
-                            SAVE NAME
+                            保存すっぺ
                         </button>
                     </div>
                 )}
