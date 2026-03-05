@@ -6,11 +6,12 @@ import { getGameSettings, saveGameSettings } from "@/lib/store";
 import Link from "next/link";
 import { Home } from "lucide-react";
 
-const ITEMS = ["1", "2", "3", "squid", "tequila"];
+const ITEMS = ["1", "2", "3", "4", "squid", "tequila"];
 const ITEM_LOGOS: Record<string, string> = {
-    "1": "/assets/tsum_1_0.jpg",
-    "2": "/assets/tsum_2_0.jpg",
-    "3": "/assets/tsum_3_0.jpg",
+    "1": "/assets/tsum_1_real_0.jpg",
+    "2": "/assets/tsum_2_real_0.jpg",
+    "3": "/assets/tsum_3_real_0.jpg",
+    "4": "/assets/tsum_4_real_0.jpg",
     "squid": "/assets/tsum_squid_0.jpg",
     "tequila": "/assets/tsum_tequila_0.jpg"
 };
