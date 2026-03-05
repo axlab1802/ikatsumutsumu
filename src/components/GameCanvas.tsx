@@ -6,7 +6,14 @@ import { getGameSettings, saveGameSettings } from "@/lib/store";
 import Link from "next/link";
 import { Home } from "lucide-react";
 
-const ITEMS = ["🦑", "🐙", "🌵", "🦀", "🥤", "🐟", "🥃"];
+const ITEMS = ["1", "2", "3", "squid", "tequila"];
+const ITEM_LOGOS: Record<string, string> = {
+    "1": "/assets/tsum_1_0.jpg",
+    "2": "/assets/tsum_2_0.jpg",
+    "3": "/assets/tsum_3_0.jpg",
+    "squid": "/assets/tsum_squid_0.jpg",
+    "tequila": "/assets/tsum_tequila_0.jpg"
+};
 const BALL_RADIUS = 28;
 const ITEM_LIMIT = 50;
 const GAME_TIME = 30; // seconds
@@ -43,6 +50,7 @@ export default function GameCanvas() {
     const isHurryUpPlayedRef = useRef(false);
     const spawnTimerRef = useRef<NodeJS.Timeout | null>(null);
     const gameTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const imagesRef = useRef<{ [key: string]: HTMLImageElement }>({});
 
     // Global cleanup on unmount
     useEffect(() => {
@@ -84,6 +92,13 @@ export default function GameCanvas() {
         fourHitAudioRef.current = new Audio("/assets/4hit.mp3");
         hurryUpAudioRef.current = new Audio("/assets/hurry_up.wav");
         gameOverAudioRef.current = new Audio("/assets/gameover.mp3");
+
+        // Preload images
+        Object.entries(ITEM_LOGOS).forEach(([key, src]) => {
+            const img = new Image();
+            img.src = src;
+            imagesRef.current[key] = img;
+        });
 
         // Allow settings override for BGM
         if (settings.bgmMp3DataUrl) {
@@ -358,15 +373,18 @@ export default function GameCanvas() {
                     ctx.shadowColor = "transparent";
                 }
 
-                // Offset text for riso printing effect
-                ctx.globalAlpha = 0.8;
-                ctx.fillText(b.label, -2, -2); // Cyan/base offset impression
+                ctx.globalCompositeOperation = "source-over"; // Reset for actual drawing
 
-                ctx.globalAlpha = 1.0;
-                ctx.fillText(b.label, 2, 2); // Pink/Magenta offset
-
-                ctx.globalCompositeOperation = "source-over"; // Reset for actual emoji
-                ctx.fillText(b.label, 0, 0);
+                const img = imagesRef.current[b.label];
+                if (img && img.complete) {
+                    const r = BALL_RADIUS * scale;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(0, 0, r, 0, Math.PI * 2);
+                    ctx.clip(); // Ensure it stays perfectly circular
+                    ctx.drawImage(img, -r, -r, r * 2, r * 2);
+                    ctx.restore();
+                }
 
                 ctx.restore();
             }
